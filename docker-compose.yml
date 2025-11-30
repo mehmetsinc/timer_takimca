@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  timer:
+    build: .
+    container_name: timer_app
+    ports:
+      - "${PORT:-80}:80"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/usr/share/nginx/html/uploads:ro
+
