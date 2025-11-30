@@ -4,10 +4,10 @@ services:
   timer:
     build: .
     container_name: timer_app
+    # Port mapping: 8082 (host) -> 80 (container)
+    # NPM will proxy from 443 to this port
     ports:
-      - "${PORT:-80}:80"
-    environment:
-      - DOMAIN=${DOMAIN:-localhost}
+      - "${PORT:-8082}:80"
     restart: unless-stopped
     volumes:
       - ./uploads:/usr/share/nginx/html/uploads:ro
