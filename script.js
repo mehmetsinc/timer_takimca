@@ -1,96 +1,4 @@
-// Parse URL query parameters
-function getQueryParams() {
-    const params = new URLSearchParams(window.location.search);
-    return {
-        timer: params.get('timer') || '00',
-        wall: params.get('wall') || 'dots',
-        msg: params.get('msg') || 'Timer'
-    };
-}
-
-// Set background based on wall parameter
-async function setBackground(wall) {
-    const container = document.querySelector('.container');
-    
-    // Remove all pattern classes
-    container.classList.remove('dots-pattern', 'boxes-pattern');
-    
-    if (wall === 'dots') {
-        container.classList.add('dots-pattern');
-        container.style.backgroundImage = 'none';
-    } else if (wall === 'boxes') {
-        container.classList.add('boxes-pattern');
-        container.style.backgroundImage = 'none';
-    } else if (wall.startsWith('img_')) {
-        // Load from localStorage
-        const imageId = wall.replace('img_', '');
-        const images = ImageStorage.getAll();
-        const image = images.find(img => img.id === imageId);
-        if (image) {
-            container.style.backgroundImage = `url('${image.data}')`;
-        }
-    } else if (wall.startsWith('http://') || wall.startsWith('https://')) {
-        // Try to load from cache first, if not save it
-        try {
-            const images = ImageStorage.getAll();
-            const cached = images.find(img => img.url === wall);
-            if (cached) {
-                container.style.backgroundImage = `url('${cached.data}')`;
-            } else {
-                container.style.backgroundImage = `url('${wall}')`;
-                // Save in background
-                ImageStorage.saveFromUrl(wall).catch(() => {
-                    // Silently fail if save doesn't work
-                });
-            }
-        } catch (e) {
-            container.style.backgroundImage = `url('${wall}')`;
-        }
-    } else {
-        // Assume it's a relative path or filename
-        container.style.backgroundImage = `url('${wall}')`;
-    }
-}
-
-// Parse timer value and determine if it's minutes or end time
-function parseTimer(timerValue) {
-    // Check if it's in HH:MM format (end time)
-    if (timerValue.includes(':')) {
-        const [hours, minutes] = timerValue.split(':').map(Number);
-        const now = new Date();
-        const endTime = new Date();
-        endTime.setHours(hours, minutes, 0, 0);
-        
-        // If end time is earlier than now, assume it's tomorrow
-        if (endTime < now) {
-            endTime.setDate(endTime.getDate() + 1);
-        }
-        
-        return {
-            type: 'endTime',
-            endTime: endTime
-        };
-    } else {
-        // Assume it's minutes
-        const minutes = parseInt(timerValue, 10) || 0;
-        const endTime = new Date();
-        endTime.setMinutes(endTime.getMinutes() + minutes);
-        
-        return {
-            type: 'minutes',
-            endTime: endTime
-        };
-    }
-}
-
-// Format time as MM:SS with better visual formatting
-function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-}
-
-// Image storage management
+// Image storage management (must be defined before setBackground)
 const ImageStorage = {
     STORAGE_KEY: 'timer_background_images',
     
@@ -165,6 +73,106 @@ const ImageStorage = {
     }
 };
 
+// Parse URL query parameters
+function getQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        timer: params.get('timer') || '00',
+        wall: params.get('wall') || 'dots',
+        msg: params.get('msg') || 'Timer'
+    };
+}
+
+// Set background based on wall parameter
+function setBackground(wall) {
+    const container = document.querySelector('.container');
+    
+    // Remove all pattern classes
+    container.classList.remove('dots-pattern', 'boxes-pattern');
+    
+    if (wall === 'dots') {
+        container.classList.add('dots-pattern');
+        container.style.backgroundImage = 'none';
+    } else if (wall === 'boxes') {
+        container.classList.add('boxes-pattern');
+        container.style.backgroundImage = 'none';
+    } else if (wall && wall.startsWith('img_')) {
+        // Load from localStorage
+        const imageId = wall.replace('img_', '');
+        const images = ImageStorage.getAll();
+        const image = images.find(img => img.id === imageId);
+        if (image) {
+            container.style.backgroundImage = `url('${image.data}')`;
+        } else {
+            // Fallback to dots if image not found
+            container.classList.add('dots-pattern');
+            container.style.backgroundImage = 'none';
+        }
+    } else if (wall && (wall.startsWith('http://') || wall.startsWith('https://'))) {
+        // Try to load from cache first, if not save it
+        try {
+            const images = ImageStorage.getAll();
+            const cached = images.find(img => img.url === wall);
+            if (cached) {
+                container.style.backgroundImage = `url('${cached.data}')`;
+            } else {
+                container.style.backgroundImage = `url('${wall}')`;
+                // Save in background (don't wait for it)
+                ImageStorage.saveFromUrl(wall).catch(() => {
+                    // Silently fail if save doesn't work
+                });
+            }
+        } catch (e) {
+            container.style.backgroundImage = `url('${wall}')`;
+        }
+    } else if (wall) {
+        // Assume it's a relative path or filename
+        container.style.backgroundImage = `url('${wall}')`;
+    } else {
+        // Default to dots
+        container.classList.add('dots-pattern');
+        container.style.backgroundImage = 'none';
+    }
+}
+
+// Parse timer value and determine if it's minutes or end time
+function parseTimer(timerValue) {
+    // Check if it's in HH:MM format (end time)
+    if (timerValue.includes(':')) {
+        const [hours, minutes] = timerValue.split(':').map(Number);
+        const now = new Date();
+        const endTime = new Date();
+        endTime.setHours(hours, minutes, 0, 0);
+        
+        // If end time is earlier than now, assume it's tomorrow
+        if (endTime < now) {
+            endTime.setDate(endTime.getDate() + 1);
+        }
+        
+        return {
+            type: 'endTime',
+            endTime: endTime
+        };
+    } else {
+        // Assume it's minutes
+        const minutes = parseInt(timerValue, 10) || 0;
+        const endTime = new Date();
+        endTime.setMinutes(endTime.getMinutes() + minutes);
+        
+        return {
+            type: 'minutes',
+            endTime: endTime
+        };
+    }
+}
+
+// Format time as MM:SS with better visual formatting
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
 // Update timer display
 function updateTimer() {
     const params = getQueryParams();
@@ -176,9 +184,7 @@ function updateTimer() {
     messageDisplay.textContent = decodeURIComponent(params.msg);
     
     // Set background
-    setBackground(params.wall).catch(() => {
-        // Silently handle errors
-    });
+    setBackground(params.wall);
     
     // Timer update function
     function tick() {
