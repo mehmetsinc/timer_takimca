@@ -2,7 +2,7 @@
 
 Modern, responsive timer web uygulaması. Docker ile kolayca deploy edilebilir ve Nginx Proxy Manager ile entegre çalışır.
 
-## Özellikler
+git ## Özellikler
 
 - ⏱️ **İki Timer Modu:**
   - **Dakika Bazlı:** Belirli dakika sayısı için geri sayım

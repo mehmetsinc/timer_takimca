@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Settings Button -->
+    <button class="settings-btn" id="settingsBtn" title="Timer Ayarları">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+        </svg>
+    </button>
+
     <div class="container">
         <div class="background-overlay"></div>
         <div class="content">
@@ -16,6 +24,77 @@
             </div>
         </div>
     </div>
+
+    <!-- Timer Config Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Timer Config</h2>
+                <button class="close-btn" id="closeBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Timer Type:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="timerType" value="minutes" checked>
+                            <span>Timer by Minutes</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="timerType" value="endTime">
+                            <span>Timer by End Time</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="minutesGroup">
+                    <label for="minutesInput">Enter Countdown Minutes:</label>
+                    <input type="number" id="minutesInput" min="0" value="0">
+                </div>
+
+                <div class="form-group" id="endTimeGroup" style="display: none;">
+                    <label for="endTimeInput">End Time (HH:MM):</label>
+                    <input type="time" id="endTimeInput">
+                </div>
+
+                <div class="form-group">
+                    <label for="backgroundSelect">Background:</label>
+                    <select id="backgroundSelect">
+                        <option value="dots">Dots</option>
+                        <option value="boxes">Boxes</option>
+                        <option value="url">Custom URL</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="urlGroup" style="display: none;">
+                    <label for="urlInput">Background URL:</label>
+                    <input type="text" id="urlInput" placeholder="https://example.com/image.jpg">
+                </div>
+
+                <div class="form-group">
+                    <label for="messageInput">Message:</label>
+                    <input type="text" id="messageInput" value="Let's meet in...">
+                </div>
+
+                <div class="form-group">
+                    <label>Full URL with query params:</label>
+                    <div class="url-display">
+                        <input type="text" id="fullUrl" readonly>
+                        <button class="copy-btn" id="copyBtn" title="Copy URL">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="start-timer-btn" id="startTimerBtn">Start Timer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

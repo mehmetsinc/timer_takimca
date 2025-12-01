@@ -12,16 +12,20 @@ function getQueryParams() {
 function setBackground(wall) {
     const container = document.querySelector('.container');
     
+    // Remove all pattern classes
+    container.classList.remove('dots-pattern', 'boxes-pattern');
+    
     if (wall === 'dots') {
         container.classList.add('dots-pattern');
         container.style.backgroundImage = 'none';
+    } else if (wall === 'boxes') {
+        container.classList.add('boxes-pattern');
+        container.style.backgroundImage = 'none';
     } else if (wall.startsWith('http://') || wall.startsWith('https://')) {
         container.style.backgroundImage = `url('${wall}')`;
-        container.classList.remove('dots-pattern');
     } else {
         // Assume it's a relative path or filename
         container.style.backgroundImage = `url('${wall}')`;
-        container.classList.remove('dots-pattern');
     }
 }
 
@@ -99,5 +103,175 @@ function updateTimer() {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', updateTimer);
+document.addEventListener('DOMContentLoaded', () => {
+    updateTimer();
+    initModal();
+});
+
+// Modal functionality
+function initModal() {
+    const settingsBtn = document.getElementById('settingsBtn');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const closeBtn = document.getElementById('closeBtn');
+    const timerTypeRadios = document.querySelectorAll('input[name="timerType"]');
+    const minutesGroup = document.getElementById('minutesGroup');
+    const endTimeGroup = document.getElementById('endTimeGroup');
+    const backgroundSelect = document.getElementById('backgroundSelect');
+    const urlGroup = document.getElementById('urlGroup');
+    const urlInput = document.getElementById('urlInput');
+    const minutesInput = document.getElementById('minutesInput');
+    const endTimeInput = document.getElementById('endTimeInput');
+    const messageInput = document.getElementById('messageInput');
+    const fullUrlInput = document.getElementById('fullUrl');
+    const copyBtn = document.getElementById('copyBtn');
+    const startTimerBtn = document.getElementById('startTimerBtn');
+
+    // Open modal
+    settingsBtn.addEventListener('click', () => {
+        modalOverlay.classList.add('active');
+        loadCurrentSettings();
+        updateUrl();
+    });
+
+    // Close modal
+    closeBtn.addEventListener('click', () => {
+        modalOverlay.classList.remove('active');
+    });
+
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+            modalOverlay.classList.remove('active');
+        }
+    });
+
+    // Close modal with ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+            modalOverlay.classList.remove('active');
+        }
+    });
+
+    // Timer type change
+    timerTypeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.value === 'minutes') {
+                minutesGroup.style.display = 'block';
+                endTimeGroup.style.display = 'none';
+            } else {
+                minutesGroup.style.display = 'none';
+                endTimeGroup.style.display = 'block';
+            }
+            updateUrl();
+        });
+    });
+
+    // Background type change
+    backgroundSelect.addEventListener('change', () => {
+        if (backgroundSelect.value === 'url') {
+            urlGroup.style.display = 'block';
+        } else {
+            urlGroup.style.display = 'none';
+        }
+        updateUrl();
+    });
+
+    // Input changes
+    minutesInput.addEventListener('input', updateUrl);
+    endTimeInput.addEventListener('input', updateUrl);
+    urlInput.addEventListener('input', updateUrl);
+    messageInput.addEventListener('input', updateUrl);
+
+    // Copy URL
+    copyBtn.addEventListener('click', () => {
+        fullUrlInput.select();
+        document.execCommand('copy');
+        
+        // Visual feedback
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '✓';
+        copyBtn.style.background = '#4caf50';
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.style.background = '';
+        }, 1000);
+    });
+
+    // Start Timer
+    startTimerBtn.addEventListener('click', () => {
+        const url = fullUrlInput.value;
+        if (url) {
+            window.location.href = url;
+        }
+    });
+
+    // Update URL based on current settings
+    function updateUrl() {
+        const timerType = document.querySelector('input[name="timerType"]:checked').value;
+        let timerValue = '';
+        
+        if (timerType === 'minutes') {
+            timerValue = minutesInput.value || '0';
+        } else {
+            const timeValue = endTimeInput.value;
+            if (timeValue) {
+                const [hours, minutes] = timeValue.split(':');
+                timerValue = `${hours}:${minutes}`;
+            } else {
+                timerValue = '00:00';
+            }
+        }
+
+        const background = backgroundSelect.value;
+        let wallValue = background;
+        if (background === 'url') {
+            wallValue = urlInput.value || 'dots';
+        }
+
+        const message = messageInput.value || 'Timer';
+        const baseUrl = window.location.origin + window.location.pathname;
+        const url = `${baseUrl}?timer=${encodeURIComponent(timerValue)}&wall=${encodeURIComponent(wallValue)}&msg=${encodeURIComponent(message)}`;
+        
+        fullUrlInput.value = url;
+    }
+
+    // Load current URL parameters into modal
+    function loadCurrentSettings() {
+        const params = getQueryParams();
+        
+        // Set timer type and value
+        if (params.timer.includes(':')) {
+            document.querySelector('input[name="timerType"][value="endTime"]').checked = true;
+            endTimeGroup.style.display = 'block';
+            minutesGroup.style.display = 'none';
+            const [hours, minutes] = params.timer.split(':');
+            endTimeInput.value = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+        } else {
+            document.querySelector('input[name="timerType"][value="minutes"]').checked = true;
+            minutesGroup.style.display = 'block';
+            endTimeGroup.style.display = 'none';
+            minutesInput.value = params.timer || '0';
+        }
+
+        // Set background
+        if (params.wall === 'dots') {
+            backgroundSelect.value = 'dots';
+            urlGroup.style.display = 'none';
+        } else if (params.wall === 'boxes') {
+            backgroundSelect.value = 'boxes';
+            urlGroup.style.display = 'none';
+        } else if (params.wall) {
+            backgroundSelect.value = 'url';
+            urlGroup.style.display = 'block';
+            urlInput.value = params.wall;
+        } else {
+            backgroundSelect.value = 'dots';
+            urlGroup.style.display = 'none';
+        }
+
+        // Set message
+        messageInput.value = decodeURIComponent(params.msg);
+        
+        updateUrl();
+    }
+}
 
