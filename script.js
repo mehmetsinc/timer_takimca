@@ -9,7 +9,7 @@ function getQueryParams() {
 }
 
 // Set background based on wall parameter
-function setBackground(wall) {
+async function setBackground(wall) {
     const container = document.querySelector('.container');
     
     // Remove all pattern classes
@@ -21,8 +21,31 @@ function setBackground(wall) {
     } else if (wall === 'boxes') {
         container.classList.add('boxes-pattern');
         container.style.backgroundImage = 'none';
+    } else if (wall.startsWith('img_')) {
+        // Load from localStorage
+        const imageId = wall.replace('img_', '');
+        const images = ImageStorage.getAll();
+        const image = images.find(img => img.id === imageId);
+        if (image) {
+            container.style.backgroundImage = `url('${image.data}')`;
+        }
     } else if (wall.startsWith('http://') || wall.startsWith('https://')) {
-        container.style.backgroundImage = `url('${wall}')`;
+        // Try to load from cache first, if not save it
+        try {
+            const images = ImageStorage.getAll();
+            const cached = images.find(img => img.url === wall);
+            if (cached) {
+                container.style.backgroundImage = `url('${cached.data}')`;
+            } else {
+                container.style.backgroundImage = `url('${wall}')`;
+                // Save in background
+                ImageStorage.saveFromUrl(wall).catch(() => {
+                    // Silently fail if save doesn't work
+                });
+            }
+        } catch (e) {
+            container.style.backgroundImage = `url('${wall}')`;
+        }
     } else {
         // Assume it's a relative path or filename
         container.style.backgroundImage = `url('${wall}')`;
@@ -60,12 +83,87 @@ function parseTimer(timerValue) {
     }
 }
 
-// Format time as MM:SS
+// Format time as MM:SS with better visual formatting
 function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
+
+// Image storage management
+const ImageStorage = {
+    STORAGE_KEY: 'timer_background_images',
+    
+    getAll() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            console.error('Error loading images:', e);
+            return [];
+        }
+    },
+    
+    save(images) {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(images));
+        } catch (e) {
+            console.error('Error saving images:', e);
+            // If storage is full, try to remove oldest images
+            if (e.name === 'QuotaExceededError') {
+                const all = this.getAll();
+                const reduced = all.slice(-10); // Keep only last 10
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reduced));
+            }
+        }
+    },
+    
+    add(imageData) {
+        const images = this.getAll();
+        const id = Date.now().toString();
+        images.push({ id, data: imageData, timestamp: Date.now() });
+        this.save(images);
+        return id;
+    },
+    
+    remove(id) {
+        const images = this.getAll();
+        const filtered = images.filter(img => img.id !== id);
+        this.save(filtered);
+    },
+    
+    async saveFromUrl(url) {
+        try {
+            // Check if already saved
+            const images = this.getAll();
+            const existing = images.find(img => img.url === url);
+            if (existing) {
+                return existing.id;
+            }
+            
+            // Fetch and convert to base64
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            
+            return new Promise((resolve, reject) => {
+                reader.onloadend = () => {
+                    const base64 = reader.result;
+                    const images = this.getAll();
+                    const id = Date.now().toString();
+                    images.push({ id, data: base64, url, timestamp: Date.now() });
+                    this.save(images);
+                    resolve(id);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error('Error saving image from URL:', e);
+            throw e;
+        }
+    }
+};
 
 // Update timer display
 function updateTimer() {
@@ -78,7 +176,9 @@ function updateTimer() {
     messageDisplay.textContent = decodeURIComponent(params.msg);
     
     // Set background
-    setBackground(params.wall);
+    setBackground(params.wall).catch(() => {
+        // Silently handle errors
+    });
     
     // Timer update function
     function tick() {
@@ -87,11 +187,14 @@ function updateTimer() {
         
         if (diff === 0) {
             timeDisplay.textContent = '00:00';
+            timeDisplay.setAttribute('data-time', '00:00');
             timeDisplay.classList.add('timer-ended');
             return;
         }
         
-        timeDisplay.textContent = formatTime(diff);
+        const formatted = formatTime(diff);
+        timeDisplay.textContent = formatted;
+        timeDisplay.setAttribute('data-time', formatted);
         timeDisplay.classList.remove('timer-ended');
     }
     
@@ -118,13 +221,19 @@ function initModal() {
     const endTimeGroup = document.getElementById('endTimeGroup');
     const backgroundSelect = document.getElementById('backgroundSelect');
     const urlGroup = document.getElementById('urlGroup');
+    const uploadedGroup = document.getElementById('uploadedGroup');
+    const imageGallery = document.getElementById('imageGallery');
+    const imageUpload = document.getElementById('imageUpload');
     const urlInput = document.getElementById('urlInput');
+    const saveUrlBtn = document.getElementById('saveUrlBtn');
     const minutesInput = document.getElementById('minutesInput');
     const endTimeInput = document.getElementById('endTimeInput');
     const messageInput = document.getElementById('messageInput');
     const fullUrlInput = document.getElementById('fullUrl');
     const copyBtn = document.getElementById('copyBtn');
     const startTimerBtn = document.getElementById('startTimerBtn');
+    
+    let selectedImageId = null;
 
     // Open modal
     settingsBtn.addEventListener('click', () => {
@@ -169,11 +278,105 @@ function initModal() {
     backgroundSelect.addEventListener('change', () => {
         if (backgroundSelect.value === 'url') {
             urlGroup.style.display = 'block';
+            uploadedGroup.style.display = 'none';
+        } else if (backgroundSelect.value === 'uploaded') {
+            urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'block';
+            renderImageGallery();
         } else {
             urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'none';
         }
+        selectedImageId = null;
         updateUrl();
     });
+    
+    // Image upload
+    imageUpload.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    ImageStorage.add(reader.result);
+                    renderImageGallery();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        e.target.value = ''; // Reset input
+    });
+    
+    // Save URL button
+    saveUrlBtn.addEventListener('click', async () => {
+        const url = urlInput.value.trim();
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+            saveUrlBtn.textContent = '⏳';
+            saveUrlBtn.disabled = true;
+            try {
+                await ImageStorage.saveFromUrl(url);
+                renderImageGallery();
+                backgroundSelect.value = 'uploaded';
+                urlGroup.style.display = 'none';
+                uploadedGroup.style.display = 'block';
+                urlInput.value = '';
+                alert('Image saved successfully!');
+            } catch (e) {
+                alert('Error saving image. Please check the URL.');
+            } finally {
+                saveUrlBtn.textContent = '💾';
+                saveUrlBtn.disabled = false;
+            }
+        }
+    });
+    
+    // Render image gallery
+    function renderImageGallery() {
+        const images = ImageStorage.getAll();
+        imageGallery.innerHTML = '';
+        
+        if (images.length === 0) {
+            imageGallery.innerHTML = '<div class="image-item empty">No images uploaded</div>';
+            return;
+        }
+        
+        images.forEach(image => {
+            const item = document.createElement('div');
+            item.className = 'image-item';
+            if (selectedImageId === image.id) {
+                item.classList.add('selected');
+            }
+            
+            const img = document.createElement('img');
+            img.src = image.data;
+            img.alt = 'Background';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Delete this image?')) {
+                    ImageStorage.remove(image.id);
+                    if (selectedImageId === image.id) {
+                        selectedImageId = null;
+                    }
+                    renderImageGallery();
+                    updateUrl();
+                }
+            };
+            
+            item.appendChild(img);
+            item.appendChild(deleteBtn);
+            item.onclick = () => {
+                selectedImageId = image.id;
+                renderImageGallery();
+                updateUrl();
+            };
+            
+            imageGallery.appendChild(item);
+        });
+    }
 
     // Input changes
     minutesInput.addEventListener('input', updateUrl);
@@ -225,6 +428,8 @@ function initModal() {
         let wallValue = background;
         if (background === 'url') {
             wallValue = urlInput.value || 'dots';
+        } else if (background === 'uploaded' && selectedImageId) {
+            wallValue = `img_${selectedImageId}`;
         }
 
         const message = messageInput.value || 'Timer';
@@ -256,16 +461,26 @@ function initModal() {
         if (params.wall === 'dots') {
             backgroundSelect.value = 'dots';
             urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'none';
         } else if (params.wall === 'boxes') {
             backgroundSelect.value = 'boxes';
             urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'none';
+        } else if (params.wall && params.wall.startsWith('img_')) {
+            backgroundSelect.value = 'uploaded';
+            urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'block';
+            selectedImageId = params.wall.replace('img_', '');
+            renderImageGallery();
         } else if (params.wall) {
             backgroundSelect.value = 'url';
             urlGroup.style.display = 'block';
+            uploadedGroup.style.display = 'none';
             urlInput.value = params.wall;
         } else {
             backgroundSelect.value = 'dots';
             urlGroup.style.display = 'none';
+            uploadedGroup.style.display = 'none';
         }
 
         // Set message

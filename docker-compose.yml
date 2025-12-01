@@ -4,11 +4,17 @@ services:
   timer:
     build: .
     container_name: timer_app
-    # Port mapping: 8082 (host) -> 80 (container)
-    # NPM will proxy from 443 to this port
+    # Eğer NPM sadece Docker network üzerinden erişecekse,
+    # aşağıdaki ports kısmını komple silebilirsin.
+    # Dışarıdan 8082 ile erişmeye devam etmek istiyorsan bırak.
     ports:
       - "${PORT:-8082}:80"
     restart: unless-stopped
     volumes:
       - ./uploads:/usr/share/nginx/html/uploads:ro
+    networks:
+      - proxy   # <— BURASI ÖNEMLİ: NPM ile aynı network
 
+networks:
+  proxy:
+    external: true   # Docker'da zaten var olan "proxy" network'ünü kullan

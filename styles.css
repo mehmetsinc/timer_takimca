@@ -67,9 +67,31 @@ body {
 .time {
     font-size: 8rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
     line-height: 1;
+    font-family: 'Courier New', monospace;
+    text-shadow: 
+        0 0 10px rgba(255, 140, 0, 0.5),
+        0 0 20px rgba(255, 140, 0, 0.3),
+        0 0 30px rgba(255, 140, 0, 0.2),
+        2px 2px 4px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(135deg, #ffffff 0%, #ff8c00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     animation: pulse 2s ease-in-out infinite;
+    position: relative;
+}
+
+.time::before {
+    content: attr(data-time);
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    color: rgba(255, 140, 0, 0.2);
+    filter: blur(10px);
+    transform: scale(1.1);
 }
 
 .message {
@@ -366,6 +388,132 @@ body {
     transform: translateY(0);
 }
 
+/* Image Gallery */
+.image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    border: 1px solid #404040;
+}
+
+.image-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.image-item:hover {
+    border-color: #ff8c00;
+    transform: scale(1.05);
+}
+
+.image-item.selected {
+    border-color: #ff8c00;
+    box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.3);
+}
+
+.image-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-item .delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255, 0, 0, 0.8);
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.image-item:hover .delete-btn {
+    opacity: 1;
+}
+
+.image-item.empty {
+    border: 2px dashed #404040;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+/* Upload Button */
+.upload-label {
+    display: block;
+    cursor: pointer;
+}
+
+.upload-btn {
+    display: inline-block;
+    background: #404040;
+    border: 1px solid #505050;
+    border-radius: 4px;
+    padding: 10px 16px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.upload-btn:hover {
+    background: #505050;
+    border-color: #ff8c00;
+    color: #ffffff;
+}
+
+/* URL Input Group */
+.url-input-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.url-input-group input {
+    flex: 1;
+}
+
+.save-url-btn {
+    background: #404040;
+    border: 1px solid #505050;
+    border-radius: 4px;
+    padding: 10px 16px;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+    min-width: 50px;
+}
+
+.save-url-btn:hover {
+    background: #505050;
+    border-color: #ff8c00;
+    color: #ff8c00;
+}
+
 /* Responsive Modal */
 @media (max-width: 768px) {
     .modal {
@@ -382,6 +530,11 @@ body {
     .radio-group {
         flex-direction: column;
         gap: 12px;
+    }
+    
+    .image-gallery {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 8px;
     }
 }
 
